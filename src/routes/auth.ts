@@ -57,7 +57,14 @@ router.post('/signup', async (req, res) => {
 
   if (insertErr) {
     // Roll back the auth user so we don't leave an orphaned credential with no profile.
-    await supabase.auth.admin.deleteUser(created.user.id);
+    // supabase-js returns { error } rather than throwing on API-level failures — a prior
+    // version of this code awaited this without checking, which let the rollback itself
+    // fail silently (an orphaned auth user with no accounts row, blocking future signups
+    // with "already registered" and no way to log in) if it hit its own permission error.
+    const { error: deleteErr } = await supabase.auth.admin.deleteUser(created.user.id);
+    if (deleteErr) {
+      console.error(`Signup rollback failed for ${created.user.id}: ${deleteErr.message}. Orphaned auth user needs manual cleanup.`);
+    }
     res.status(500).json({ error: 'Could not create account profile: ' + insertErr.message });
     return;
   }
