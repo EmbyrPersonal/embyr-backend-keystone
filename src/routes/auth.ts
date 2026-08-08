@@ -41,7 +41,12 @@ router.post('/signup', async (req, res) => {
   const { data: created, error: createErr } = await supabase.auth.admin.createUser({
     email,
     password,
-    email_confirm: false,
+    // true = mark the email as already confirmed. There's no verification-link UI in this
+    // app to handle the alternative, and Supabase's default project setting requires a
+    // confirmed email before signInWithPassword succeeds — leaving this false silently
+    // created accounts that could never actually log in, surfacing only as a generic
+    // "Invalid email or password" with no indication that confirmation was the real cause.
+    email_confirm: true,
   });
 
   if (createErr || !created.user) {
